@@ -1,0 +1,54 @@
+#include <Wire.h>
+#include <Adafruit_BME280.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_ST7789.h>
+
+// Pin definitions for the Feather ESP32-S3 TFT
+#define TFT_CS        10
+#define TFT_RST       -1 // RST not used
+#define TFT_DC        9
+
+// Initialize display and sensor
+Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
+Adafruit_BME280 bme;
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+  Wire.begin();
+  // Initialize BME
+  if (!bme.begin(0x76)) { //gnd address
+    Serial.println("Could not find BME280 sensor!");
+    while (1);
+  }
+
+  // Initialize the TFT display
+  tft.init(240, 135); // Feather ESP32-S3 TFT display resolution
+  tft.setRotation(1); // Landscape mode
+  tft.fillScreen(ST77XX_BLACK);
+  tft.setTextSize(4);
+  tft.setTextColor(ST77XX_WHITE);
+  tft.setCursor(10, 50);
+  tft.println("Starting...");
+  delay(2000);
+}
+
+void loop() {
+  tft.fillScreen(ST77XX_BLACK); // Clear screen
+
+  float humidity = bme.readHumidity();
+  Serial.print("Humidity: ");
+  Serial.println(humidity);
+
+  tft.setCursor(10, 50);
+
+  if (humidity > 50.0) {
+    tft.setTextColor(ST77XX_GREEN);
+    tft.println("YES");
+  } else {
+    tft.setTextColor(ST77XX_RED);
+    tft.println("NO");
+  }
+
+  delay(5000); // Wait 5 seconds
+}
