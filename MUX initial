@@ -1,1 +1,101 @@
+#include <Wire.h>
+#include <Adafruit_BME280.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_ST7789.h>
+
+// TCA9548A multiplexer I2C address
+#define TCAADDR 0x70
+
+// Display pins
+#define TFT_CS    -1  // Not used, built-in on TFT
+#define TFT_RST   -1  // No external reset pin for display
+#define TFT_DC     7  // Data/command pin (might still be needed depending on library?
+
+Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
+Adafruit_BME280 bme1;
+Adafruit_BME280 bme2;
+
+// Select TCA channel
+void tcaSelect(uint8_t channel) {
+  if (channel > 7) return;
+  Wire.beginTransmission(TCAADDR);
+  Wire.write(1 << channel);
+  Wire.endTransmission();
+}
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();
+
+  // Initialize display
+  tft.init(240, 135);
+  tft.setRotation(1);
+  tft.fillScreen(ST77XX_BLACK);
+  tft.setTextSize(3);
+  tft.setTextColor(ST77XX_WHITE);
+  
+  // Initialize all sensors
+  for (uint8_t ch = 0; ch < 8; ch++) {
+    tcaSelect(ch);
+    
+    if (!bme1.begin(0x76)) {
+      Serial.print("No BME280 at 0x76 on channel "); Serial.println(ch);
+    } else {
+      Serial.print("BME280 0x76 found on channel "); Serial.println(ch);
+    }
+
+    if (!bme2.begin(0x77)) {
+      Serial.print("No BME280 at 0x77 on channel "); Serial.println(ch);
+    } else {
+      Serial.print("BME280 0x77 found on channel "); Serial.println(ch);
+    }
+  }
+}
+
+void loop() {
+  bool highHumidity = false;
+
+  for (uint8_t ch = 0; ch < 8; ch++) {
+    tcaSelect(ch);
+    delay(10);  // small pause for switching
+
+    // Read 0x76 sensor
+    if (bme1.begin(0x76)) {
+      float hum1 = bme1.readHumidity();
+      Serial.print("Ch "); Serial.print(ch);
+      Serial.print(" 0x76 Humidity: "); Serial.println(hum1);
+
+      if (hum1 > 50.0) {
+        highHumidity = true;
+        break;
+      }
+    }
+
+    // Read 0x77 sensor
+    if (bme2.begin(0x77)) {
+      float hum2 = bme2.readHumidity();
+      Serial.print("Ch "); Serial.print(ch);
+      Serial.print(" 0x77 Humidity: "); Serial.println(hum2);
+
+      if (hum2 > 50.0) {
+        highHumidity = true;
+        break;
+      }
+    }
+  }
+
+  // Update display
+  tft.fillScreen(ST77XX_BLACK);
+  tft.setCursor(10, 60);
+
+  if (highHumidity) {
+    tft.setTextColor(ST77XX_GREEN);
+    tft.print("YES");
+  } else {
+    tft.setTextColor(ST77XX_RED);
+    tft.print("NO");
+  }
+
+  delay(2000); // Refresh rate
+}
 
